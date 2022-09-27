@@ -58,6 +58,6 @@ class DrugSpider(scrapy.Spider):
             value = heading.xpath("./following-sibling::text()").get().strip()
             if not value:
                 value = heading.css('b + a::text').get()
-            medicine_info[heading.css('::text').get().strip()] = value
+            medicine_info[heading.css('::text').get()] = value
 
         return medicine_info
