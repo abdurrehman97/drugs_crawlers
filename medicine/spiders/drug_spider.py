@@ -5,22 +5,27 @@ from datetime import datetime
 
 class DrugSpider(scrapy.Spider):
     name = 'drugs'
-    start_urls = ['https://www.drugs.com']
+    start_urls = ['https://www.drugs.com/mtm/tenofovir.html']
 
     def parse(self, response, **kwargs):
 
         categories = response.css('nav.ddc-paging li:not([class]) a::attr(href)').getall()
-        yield from response.follow_all(categories, callback=self.parse_medicine)
+        yield from response.follow_all(categories, callback=self.parse_medicine_category)
 
-    def parse_medicine(self, response):
+    def parse_medicine_category(self, response):
 
-        medicines = response.css('.ddc-list-column-2 li a::attr(href)').getall()
-        yield from response.follow_all(medicines, callback=self.parse_description)
+        medicines = response.css('nav.ddc-paging li a::attr(href)').getall()
+        yield from response.follow_all(medicines, callback=self.parse_drugs)
+
+    def parse_drugs(self, response):
+
+        drugs = response.css('.ddc-list-column-2 li a::attr(href)').getall()
+        yield from response.follow_all(drugs, callback=self.parse_description)
 
     def parse_description(self, response):
 
-        date_short_form = '%B %d, %Y'
-        date_full_form = '%b %d, %Y'
+        date_full_form = '%B %d, %Y'
+        date_short_form = '%b %d, %Y'
         dated_text = response.css('.ddc-reviewed-by span ::text').getall()
         dated_text = ''.join(dated_text)
         dated = re.findall(r'on (.*?)\.', dated_text)
@@ -29,11 +34,14 @@ class DrugSpider(scrapy.Spider):
 
         if dated:
 
-            try:
-                date_with_time = datetime.strptime(dated, date_full_form)
-                local_date = date_with_time.strftime('%Y-%m-%d')
-            except:
+            date_format = re.findall(r'\b[A-z]{3}\b', dated)
+
+            if date_format:
                 date_with_time = datetime.strptime(dated, date_short_form)
+                local_date = date_with_time.strftime('%Y-%m-%d')
+
+            else:
+                date_with_time = datetime.strptime(dated, date_full_form)
                 local_date = date_with_time.strftime('%Y-%m-%d')
 
         medically_reviewed = response.css('.ddc-reviewed-by span ::text').getall()
@@ -58,6 +66,6 @@ class DrugSpider(scrapy.Spider):
             value = heading.xpath("./following-sibling::text()").get().strip()
             if not value:
                 value = heading.css('b + a::text').get()
-            medicine_info[heading.css('::text').get()] = value
+            medicine_info[heading.css('::text').get('').strip(':')] = value
 
         return medicine_info
